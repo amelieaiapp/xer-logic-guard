@@ -1,0 +1,17 @@
+MAKE XER LOGIC-GUARD FULLY OFFLINE (one-time, before Store packaging)
+=====================================================================
+The Excel and ZIP features use two small libraries. The app loads them
+LOCAL-FIRST and only falls back to the internet if the local files are
+missing. To guarantee 100% offline (and pass the Store's offline check),
+drop these two files into the App/js/ folder:
+
+  App/js/xlsx.bundle.js   from  https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js
+  App/js/jszip.min.js     from  https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js
+
+Windows PowerShell (run inside the App folder):
+  iwr "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" -OutFile "js/xlsx.bundle.js"
+  iwr "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"     -OutFile "js/jszip.min.js"
+
+That's it. No code change needed — the app and the service worker (v4) already
+look for ./js/xlsx.bundle.js and ./js/jszip.min.js first and cache them for offline.
+Then bump the service-worker VERSION if you re-package, and re-run PWABuilder.

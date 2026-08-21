@@ -1,0 +1,58 @@
+{
+  "name": "XER Logic-Guard",
+  "version": "1.17.0",
+  "id": "https://amelie.ai/apps/xer-logic-guard",
+  "short_name": "Logic-Guard",
+  "description": "Protect master schedule logic ties. Offline-first tool for detecting and cleaning unwanted relationships in Primavera P6 XER files.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1F4E79",
+  "theme_color": "#1F4E79",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "related_applications": [
+    {
+      "platform": "windows",
+      "url": "https://apps.microsoft.com/detail/9N83RTHXVGBC",
+      "id": "9N83RTHXVGBC"
+    }
+  ],
+  "prefer_related_applications": false
+}

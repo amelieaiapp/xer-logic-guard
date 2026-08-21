@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="XER Logic-Guard – Ordinary P6 + EPS. Protect master logic ties." />
+  <meta name="theme-color" content="#1F4E79" />
+  <meta name="app-version" content="1.17.0" />
+  <title>XER Logic-Guard Rev 1.17.0</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="assets/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
+  <link rel="apple-touch-icon" href="assets/icon-192.png" />
+  <style>
+    .zone-actions { margin-top: 0.5rem; text-align: right; }
+    .btn-clear-zone, .file-remove {
+      background: #eee; border: 1px solid #ccc; border-radius: 4px;
+      cursor: pointer; font-size: 0.85rem; padding: 0.25rem 0.5rem;
+    }
+    .file-remove { margin-left: 0.5rem; color: #c0392b; font-weight: bold; }
+    .file-list li { display: flex; justify-content: space-between; align-items: center; }
+    #btn-help, #btn-print, #btn-reset { background: #5D6D7E; color: white; }
+    .name-chip {
+      display: inline-block; margin: 0.25rem 0.35rem 0.25rem 0;
+      padding: 0.4rem 0.75rem; border-radius: 20px; border: 2px solid #1F4E79;
+      background: #e8f0fe; color: #1F4E79; font-weight: 600; cursor: pointer;
+    }
+    .name-chip:hover, .name-chip.selected { background: #1F4E79; color: white; }
+    #name-picker { margin-top: 0.75rem; min-height: 2rem; }
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;
+    }
+    .modal-backdrop.is-open { display: flex; }
+    .modal-box {
+      background: white; max-width: 720px; max-height: 85vh; overflow: auto;
+      border-radius: 10px; padding: 1.5rem; box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+    }
+    .modal-box h2 { color: #1F4E79; margin-bottom: 0.75rem; }
+    .modal-box .help-body { white-space: pre-wrap; font-size: 0.9rem; line-height: 1.45; color: #333; }
+    .warn-box {
+      background: #FFF3CD; border: 1px solid #FFEEBA; padding: 0.75rem 1rem;
+      border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem;
+    }
+    /* Print: fast pagination — no per-row break-avoid, no shadows/transitions */
+    @media print {
+      * {
+        box-shadow: none !important;
+        text-shadow: none !important;
+        transition: none !important;
+        animation: none !important;
+        filter: none !important;
+      }
+      .app-header .tagline, .actions, .drop-zones, #step-approved,
+      #btn-help, #btn-print, #btn-reset, .zone-actions, .tabs, .warn-box, #name-picker,
+      .app-footer, #help-modal { display: none !important; }
+      #results { display: block !important; }
+      #print-header { display: block !important; }
+      body { background: white !important; }
+      .card { border: none !important; box-shadow: none !important; }
+      .table-wrap { overflow: visible !important; max-height: none !important; }
+      #results-table {
+        font-size: 8pt;
+        border-collapse: collapse;
+        width: 100%;
+      }
+      #results-table thead { display: table-header-group; }
+      #results-table tfoot { display: table-footer-group; }
+      #results-table tr { page-break-inside: auto; break-inside: auto; }
+      #results-table th, #results-table td {
+        padding: 2px 4px;
+        border: 1px solid #ccc;
+      }
+      #results-table thead th {
+        background: #eee !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+    body.print-summary-only #results-table,
+    body.print-summary-only .tabs,
+    body.print-summary-only .table-wrap { display: none !important; }
+    body.print-summary-only #summary { display: flex !important; }
+    body.print-capped #print-cap-note { display: block !important; }
+    #print-cap-note { display: none; margin: 0.5rem 0; font-size: 0.9rem; color: #333; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <img src="assets/logo-banner.png" alt="XER Logic-Guard" class="app-logo" style="max-height:64px;width:auto;border-radius:8px;" />
+      <h1 style="position:absolute;left:-9999px;">XER Logic-Guard</h1>
+      <div id="app-version-badge" style="display:inline-block;margin:0.35rem 0 0.5rem;padding:0.25rem 0.65rem;border-radius:6px;background:#1F4E79;color:#fff;font-weight:700;font-size:0.95rem;letter-spacing:0.02em;">Rev 1.17.0</div>
+    </div>
+    <p class="tagline">Ordinary P6 + EPS/EPPM · Protect master logic ties · Offline first</p>
+    <button type="button" id="btn-help" style="margin-left:auto;">Help</button>
+  </header>
+
+  <main class="container">
+    <p style="margin:0 0 0.75rem;color:#555;font-size:0.95rem;">Check that contractor/subcontractor XER files won't corrupt your P6 master before you import them. Works the same for an ordinary P6 planner or an EPS manager. 100% offline.</p>
+
+    <div id="coach" style="margin:0 0 1rem;padding:0.7rem 1rem;border:2px solid #9BC0E8;border-radius:10px;background:#E8F0FE;color:#1F4E79;font-weight:700;font-size:1.02rem;">👉  STEP 1 — Drag your MASTER programme (.xer) onto the LEFT box.</div>
+
+    <section class="card" id="step-load">
+      <h2>1. Load XER Files</h2>
+      <p class="hint">Ordinary P6 (Professional) and EPS/EPPM. XER only.</p>
+      <div class="drop-zones">
+        <div class="drop-zone" id="master-zone">
+          <p><strong>Master Schedule(s)</strong></p>
+          <p class="hint">Drop MASTER XER here</p>
+          <input type="file" id="master-input" accept=".xer" multiple hidden />
+          <ul id="master-list" class="file-list"></ul>
+          <div class="zone-actions">
+            <button type="button" class="btn-clear-zone" id="btn-clear-master">Clear master files</button>
+          </div>
+        </div>
+        <div class="drop-zone" id="project-zone">
+          <p><strong>Contract / Project Schedules</strong></p>
+          <p class="hint">Drop contractor XERs here (optional)</p>
+          <input type="file" id="project-input" accept=".xer" multiple hidden />
+          <ul id="project-list" class="file-list"></ul>
+          <div class="zone-actions">
+            <button type="button" class="btn-clear-zone" id="btn-clear-projects">Clear project files</button>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <label>Master short name(s) — <span style="color:#c0392b;">REQUIRED (use exact name from inside the XER)</span></label>
+        <input type="text" id="master-names" placeholder="Click CHECK FILES first, then click a blue name button below" />
+      </div>
+      <div id="name-picker"></div>
+      <p id="found-projects-hint" class="hint" style="margin-top:0.75rem;white-space:pre-wrap;"></p>
+    </section>
+
+    <section class="card" id="scan-cta" style="text-align:center;">
+      <button id="btn-scan" class="primary" style="font-size:1.2rem;padding:1rem 2rem;width:100%;max-width:460px;">🔍  CHECK FILES</button>
+      <p class="hint" style="margin:0.5rem 0 0;">Files loaded? Click here — it checks them against your master and gives you a clear answer.</p>
+    </section>
+
+    <details class="card" id="step-approved" style="padding:0.5rem 1rem;">
+      <summary style="cursor:pointer;font-weight:600;color:#1F4E79;">Advanced (optional) — I've formally agreed some interfaces</summary>
+      <p class="hint"><strong>By default this app trusts NOBODY</strong> — every tie reaching into your master is flagged. Only use this if you have <em>signed off</em> an interface with a specific contractor and don't want to see it every month. If in doubt, leave it alone.</p>
+      <div id="safe-picker" style="margin-bottom:0.5rem;"></div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+        <button type="button" id="btn-trust-master" class="btn-clear-zone">↺ Reset to ZERO-TRUST</button>
+      </div>
+      <textarea id="approved-list" rows="2" placeholder="Trusted project short names appear here as buttons after you Check Files."></textarea>
+      <p class="hint" style="margin-top:0.8rem;"><strong>Interface activity codes.</strong> Ties into your master land on an <em>agreed interface point</em> if that activity's code starts with one of these. Defaults suit most jobs (CM, IF, HO, MS, HOLD, GATE, KD, plus the words INTERFACE / HANDOVER / MILESTONE / KEYDATE). Add your own, comma-separated, if your master uses different interface codes — otherwise leave blank.</p>
+      <input type="text" id="interface-codes" placeholder="e.g. TIE, LINK, BDY   (comma-separated — optional)" style="width:100%;" />
+      <p class="hint" style="margin-top:0.8rem;">Practical scale: load your master plus the contractor files you're checking — typically 2–10 files. Very large multi-file merges (20+) can be slow in the browser.</p>
+    </details>
+
+    <section class="card" id="results" hidden>
+      <div id="print-header" style="display:none;">
+        <img src="assets/logo-banner.png" alt="XER Logic-Guard" style="max-height:56px;width:auto;" />
+        <div style="font-weight:700;color:#1F4E79;font-size:0.8rem;">AMELIE·AI · amelie.ai.support@gmail.com</div>
+        <div id="print-title" style="font-size:1.1rem;font-weight:700;margin:2px 0;">Logic Audit — Problems Report</div>
+        <div id="print-sub" style="font-size:0.85rem;color:#333;"></div>
+        <hr/>
+      </div>
+      <p id="print-cap-note"></p>
+      <h2>Results</h2>
+      <div id="verdict" role="status" style="display:none;margin:0 0 0.75rem;padding:0.6rem 0.9rem;border-radius:8px;font-weight:600;"></div>
+      <div id="summary" class="summary-grid"></div>
+      <div style="text-align:center;margin:0.75rem 0;">
+        <button id="btn-download-clean" class="primary" style="font-size:1.1rem;padding:0.9rem 1.8rem;display:none;">⬇  DOWNLOAD CLEANED PACKAGE (ZIP)</button>
+      </div>
+      <p class="hint" style="text-align:center;margin:0 0 0.75rem;">
+        <a href="#" id="btn-excel" style="margin:0 0.6rem;">Export report only (Excel)</a> ·
+        <a href="#" id="btn-print" style="margin:0 0.6rem;">Print</a> ·
+        <a href="#" id="btn-reset" style="margin:0 0.6rem;">Start over</a>
+      </p>
+      <div class="tabs">
+        <button class="tab active" data-tab="all">All Master Ties</button>
+        <button class="tab" data-tab="problems">Problems Only</button>
+        <button class="tab" data-tab="removed">Removed</button>
+        <button class="tab" data-tab="kept">Kept (Clean)</button>
+      </div>
+      <div class="table-wrap">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th>Flag</th><th>Reason</th><th>Pred Project</th><th>Pred Activity</th>
+              <th>Type</th><th>Lag</th><th>Succ Project</th><th>Succ Activity</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>XER Logic-Guard · Rev 1.17.0 · Ordinary P6 + EPS/EPPM · AMELIE·AI · amelie.ai.support@gmail.com · Data never leaves your device</p>
+  </footer>
+
+  <div id="help-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <img src="assets/logo-banner.png" alt="XER Logic-Guard" style="max-width:100%;border-radius:8px;margin-bottom:0.75rem;" />
+      <h2>Help — simple guide</h2>
+      <div class="help-body">
+<strong>★ FIRST TIME? DO EXACTLY THIS ★</strong>
+--------------------------------------------------------------------
+1. Drag your MASTER programme (.xer) onto the LEFT box.
+2. Drag the file(s) the contractor sent you onto the RIGHT box.
+3. Click the big CHECK FILES button.
+4. Look at the coloured banner:
+      GREEN = safe, nothing touches your master. You're done.
+      RED   = problems found. One more click:
+5. Click DOWNLOAD CLEANED PACKAGE. That single button cleans the
+   files and gives you ONE zip containing:
+      - the CLEANED XER file(s) to import,
+      - two Excel reports (problems found + proof they're gone),
+      - an IMPORT_CHECKLIST.txt.
+6. In P6, import the CLEANED files from the zip — NOT the originals.
+That's it — two buttons. The blue "👉" line on the main screen always
+tells you the next thing to do. If you read one thing, read that line.
+
+Golden safety rule: work on a BACKUP of your master. Never your only copy.
+====================================================================
+
+<strong>XER Logic-Guard — the complete plain-English guide</strong>
+Support: amelie.ai.support@gmail.com
+
+====================================================================
+!!  THE ONE RULE THAT MATTERS MOST  !!
+--------------------------------------------------------------------
+NEVER load your ONLY copy of the master. Work on a BACKUP. This tool
+never changes your originals — but a programme is precious, so be
+SAFE, not SORRY. Back up your live master before you import anything.
+====================================================================
+
+WHY THIS TOOL EXISTS (the real P6 problem)
+------------------------------------------
+You send your programme out to subcontractors; they send monthly
+updates back as XER files. Here is the danger, straight from Oracle's
+own import rules: when you import a contractor's XER, the DEFAULT
+action for "Relationships to External Projects" is *Update Existing*,
+which ADDS the contractor's links to other projects — including links
+into YOUR master — into your database. So a single rogue or copied
+link inside a contractor file can silently re-wire your master's
+critical path and float the moment you import it.
+
+You cannot trust the file. You must verify, before importing, that it
+will not create, change, duplicate or overwrite anything in your
+master. That is exactly what Logic-Guard does — 100% offline, nothing
+leaves your PC.
+
+THE TWO WAYS PEOPLE USE THIS (same app, same steps)
+---------------------------------------------------
+1. EPS MANAGER — you run the master EPS and receive contractor
+   updates. Load YOUR master on the LEFT and EVERY returned file on
+   the RIGHT, together, then Check Files.
+2. SINGLE GUARD — you just protect one master against one or more
+   other schedules. Master on the LEFT, the others on the RIGHT.
+Either way the check is identical and the default is ZERO-TRUST — you
+don't pick a mode, you just load and check.
+
+GOLDEN RULE: always load the master WITH the received files. A
+contractor file on its own can only show its ties to your master as
+"not loaded", because your master's activities aren't there to check
+against.
+
+THE WORDS YOU'LL SEE (glossary)
+-------------------------------
+• Master            – your main/head programme; the one you protect.
+• Contract / Sub    – a subcontractor or package programme.
+• Tie / Relationship / Link – a logic link (predecessor -> successor).
+• TASKPRED          – the table inside an XER that stores the links.
+• Short name        – the project name INSIDE the XER (e.g. PROJECT_A),
+                      NOT the file name (PROJECT_A_RevA.xer).
+• Interface / CM    – an agreed hand-over point between master and a
+                      contract (often coded CM-01, CM-02 ...).
+• External Dates    – hidden constraint dates P6 bakes onto activities
+                      when a linked project wasn't present at import.
+• Audit ID          – one ID stamped on the Excel AND the cleaned
+                      package so the pair can be proven to match.
+
+THE FOUR FLAGS (colours + what they mean for YOUR master)
+---------------------------------------------------------
+• Extra   (red)   – a tie from a received file that reaches INTO your
+                    master. Importing it WILL add/alter logic in your
+                    master. Worst kind: a link into a master INTERNAL
+                    activity (not an agreed CM interface).
+• Suspected Copy (amber) – the SAME Activity ID appears in more than
+                    one project. If it clashes with a MASTER ID it can
+                    OVERWRITE your master activity on import. FIX by
+                    RENAMING in P6 — this is never auto-removed, because
+                    deleting a link cannot fix a duplicate ID.
+• Orphan  (grey)  – a link points at a project that is NOT loaded
+                    (deleted/renamed, or a file you forgot to load).
+• Approved (green)– the master's own internal logic, or an interface
+                    you have formally signed off in the safe list.
+
+READING THE VERDICT BANNER
+--------------------------
+After a scan you get a one-line answer:
+  GREEN  "SAFE TO IMPORT" — nothing touches your master.
+  RED    "DO NOT IMPORT AS-IS" — with the exact counts of what would
+         hit your master, and what to do next.
+
+STEP BY STEP (you cannot get this wrong)
+----------------------------------------
+1. Back up your live master. Work on copies.
+2. LEFT box  : your master .xer.  RIGHT box: every received file.
+3. Click CHECK FILES. If one project is in a file the short name
+   auto-fills; if several appear, click the blue button for the master,
+   then Check Files again.
+4. Read the coloured verdict.
+      GREEN = safe to import, you're done.
+      RED   = problems found. One more click:
+5. Click DOWNLOAD CLEANED PACKAGE. That single button cleans the files
+   and saves ONE zip (see below). Your originals are never touched.
+6. Rename any duplicate-ID activities in P6 (Suspected Copy).
+7. Back up your master, import the CLEANED files from the zip (not the
+   originals), reschedule (F9), then check External Dates (below).
+
+WHAT'S IN THE DOWNLOADED PACKAGE (.zip)
+---------------------------------------
+One click gives you everything, all sharing one Audit ID so the set can
+be proven to belong together:
+• CLEANED_<file>.xer     – a cleaned COPY of each file that had bad ties.
+• 1_PROBLEMS-before.xlsx – the problems that were found.
+• 2_CLEANED-after.xlsx   – a re-scan of the cleaned files proving the
+                           rogue/orphan ties are gone (only duplicate
+                           IDs may remain — rename those in P6).
+• IMPORT_CHECKLIST.txt   – the exact import steps: backup, the import
+                           Delete option, reschedule, External Dates.
+Keep the whole zip together as your audit record. The app can't lock
+Oracle P6 — only your own process can — but the package IS your
+defensible paper-trail: you get the before/after evidence automatically.
+
+WHAT THE BUTTONS DO
+-------------------
+• CHECK FILES            – Read the XERs; flag every tie touching the master.
+• DOWNLOAD CLEANED PACKAGE – Cleans the files and saves the zip above.
+                           Appears only when problems are found.
+Small links under the verdict:
+• Export report (Excel)  – Just the colour-coded workbook, no cleaning.
+• Print                  – Print/PDF the section you're viewing.
+• Start over             – Clear the results (keeps your loaded files).
+• Advanced (optional)    – Trust a formally-agreed interface (rarely needed).
+
+WHY A FLAG CAN SHOW ZERO (and that's GOOD)
+------------------------------------------
+Suspected Copy 0 = all IDs unique. Orphan 0 = every link points at a
+loaded project. Extra 0 = nothing reaches into your master. All green
+means SAFE TO IMPORT — that's the goal, not a fault. If you EXPECTED
+problems and see none: did you load the received files, is the master
+short name right (blue button), and did you load the master WITH them?
+
+TWO LINKS BETWEEN THE SAME PAIR (FS + SS)
+-----------------------------------------
+Schedulers often deliberately put two relationships between the same
+two activities (e.g. a Start-to-Start plus a Finish-to-Finish). The
+cleaner removes only the exact link that was flagged (it matches on
+the relationship TYPE too), so a legitimate second link between the
+same pair is never taken out by mistake.
+
+EXTERNAL DATES — a P6 thing this tool CANNOT see (important)
+------------------------------------------------------------
+When a contractor imported a project that linked to YOUR master but
+WITHOUT your master present, P6 can bake those links onto activities
+as "External Early Start" / "External Late Finish" DATES. These behave
+like constraints, not TASKPRED links, so NO XER tool can detect or
+strip them. After importing a cleaned file, in P6:
+  1. Add columns "External Early Start" and "External Late Finish".
+  2. Any value there is a hidden external date from a prior import.
+  3. Clear it if it is not agreed, then reschedule (F9).
+  4. Re-check your master's critical path.
+Logic-Guard removes the rogue LINKS; you clear leftover external DATES
+in P6. Do both and your master is clean.
+
+LOOKING AFTER YOUR FILES (housekeeping)
+---------------------------------------
+• Keep ORIGINALS and CLEANED copies in separate, dated folders.
+• Never overwrite an original; re-import the CLEANED file, not the
+  original submittal.
+• Keep the whole audited zip (Excel + cleaned + checklist) as the
+  record for that month's import.
+• Your typed safe list is remembered on this PC for next time.
+
+FILE TYPES & SOURCES
+--------------------
+• XER only. Ordinary P6 (Professional) and P6 EPS/EPPM export the same
+  XER format, so submittals from either are read the same way.
+• Not native Asta/MSP XML — export those as XER first. UI is English.
+• Arabic and Cyrillic activity names auto-detected (Gulf / E. Europe);
+  Sunday-Thursday / Ramadan / regional calendars are read and left
+  intact — cleaning only removes the link rows you approve.
+
+HONEST LIMITS
+-------------
+• The app cannot lock P6 or force anyone to import cleaned files — that
+  is your organisation's process rule (only the client imports to the
+  live master, never the contractor).
+• It cannot see or clear External Dates (constraints) — use the P6
+  checklist above.
+• It removes rogue LINKS and reports duplicate IDs and orphans; it does
+  not rebuild logic or reschedule for you.
+
+YOUR DATA / SAFETY
+------------------
+100% offline. Nothing is uploaded. Originals are never modified. And
+again, because it matters: work on a BACKUP of your master. SAFE, not
+SORRY.
+
+More detail is in HELP_DETAILED.md in the package.
+
+            </div>
+      <p style="margin-top:1rem;"><button type="button" id="help-close" class="primary">Close</button></p>
+    </div>
+  </div>
+
+  <!-- Local-first: drops to CDN only if the local vendor file is absent. See GET-OFFLINE-LIBS.txt to make it fully offline. -->
+  <script src="./js/xlsx.bundle.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'"></script>
+  <script src="./js/jszip.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'"></script>
+  <script src="js/encoding.js"></script>
+  <script src="js/xer-parser.js"></script>
+  <script src="js/detection.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Service worker is optional (offline cache). Register quietly and ignore failures
+    // (e.g. when previewed from a sandbox or file:// where sw.js is not reachable).
+    if ("serviceWorker" in navigator && (location.protocol === "https:" || location.protocol === "http:")) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").catch(function () {});
+      });
+    }
+  </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var b = document.getElementById('app-version-badge');
+  if (b && window.LG_VERSION) b.textContent = 'Rev ' + window.LG_VERSION;
+});
+</script>
+
+</body>
+</html>
